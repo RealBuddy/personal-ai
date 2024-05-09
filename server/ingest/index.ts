@@ -1,8 +1,8 @@
 import fs from 'fs';
 import { DirectoryLoader } from 'langchain/document_loaders/fs/directory';
-import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
+import { OpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { HNSWLib } from 'langchain/vectorstores/hnswlib';
+import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
 import { CustomPDFLoader } from '../utils/customPDFLoader';
 import { VECTOR_STORE_PATH, INPUT_DOCS_PATH } from '../consts/paths';
 import { sleep } from '../utils/global.utils';

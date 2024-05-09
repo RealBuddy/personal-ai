@@ -6,11 +6,10 @@
 </template>
 
 <script setup lang="ts">
-import { _AsyncData } from 'nuxt/dist/app/composables/asyncData';
 import { sleep } from '~/server/utils/global.utils';
 import { useAppStore } from '~/stores/appState';
 import type { ChatItem } from '~/types/chatItem';
-import { ChatRequest } from '~/types/request';
+import type { ChatRequest } from '~/types/request';
 
 const chatHistory = ref<ChatItem[]>([
   {
@@ -48,72 +47,57 @@ const send = async (message: string) => {
     index: chatHistory.value.length,
     state: 'typing',
   });
+
   const requestBody: ChatRequest = {
     question: message,
   };
 
-  const res = await useFetch('/api/openAiRequest', {
+  const { data, error } = await useFetch('/api/openAiRequest', {
     method: 'POST',
     body: requestBody,
     retry: false,
   });
-  handleAIResponse(res);
+
+  handleAIResponse(data.value, error.value);
 };
 
-const handleAIResponse = (res: _AsyncData<any, any>) => {
-  appStore.appState = 'thinking';
-  console.log(res);
-
+const handleAIResponse = (data: any, error: any) => {
   const lastItem = chatHistory.value.at(-1);
-  if (!lastItem) {
-    const newChatItem: ChatItem = {
-      fromHuman: false,
-      index: 0,
-      text: 'Something went wrong',
-      state: 'canceled',
-    };
 
-    appStore.appState = 'broken';
-
-    if (!res.data || !res.data.value || !res.data.value.message) {
-      chatHistory.value.push(newChatItem);
-      appStore.appState = 'broken';
-
-      return;
+  if (error || !data?.message) {
+    const errorMessage = 'Something went wrong';
+    if (lastItem) {
+      lastItem.text = errorMessage;
+      lastItem.state = 'canceled';
+    } else {
+      chatHistory.value.push({
+        fromHuman: false,
+        index: chatHistory.value.length,
+        text: errorMessage,
+        state: 'canceled',
+      });
     }
-
-    newChatItem.text = res.data.value.message;
-    newChatItem.state = 'finished';
-    chatHistory.value.push(newChatItem);
-    appStore.appState = 'ready';
-
-    return;
-  }
-
-  if (!res.data || !res.data.value || !res.data.value.message) {
-    lastItem.text = 'Something went wrong';
-    lastItem.state = 'canceled';
-
     appStore.appState = 'broken';
     return;
   }
 
-  lastItem.text = res.data.value.message;
-  lastItem.state = 'finished';
+  if (lastItem) {
+    lastItem.text = data.message;
+    lastItem.state = 'finished';
+  }
+
   appStore.appState = 'ready';
 };
 
 onMounted(async () => {
-  setTimeout(async () => {
-    appStore.appState = 'loading';
-    const res = await useFetch('/api/checkIngest');
-    console.log(res.data.value);
-    if (res.data.value?.error) {
-      appStore.appState = 'broken';
-
-      return;
-    }
+  appStore.appState = 'loading';
+  const { data, error } = await useFetch('/api/checkIngest');
+  if (error.value) {
+    appStore.appState = 'broken';
+  } else if (data.value?.error) {
+    appStore.appState = 'broken';
+  } else {
     appStore.appState = 'ready';
-  });
+  }
 });
 </script>
