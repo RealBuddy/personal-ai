@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     });
 
     const { question } = await readBody<ChatRequest>(event);
-    console.log('Received question:', question);
+    // console.log('Received question:', question);
 
     let vectorStore;
     if (fs.existsSync(VECTOR_STORE_PATH)) {
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
         VECTOR_STORE_PATH,
         new OpenAIEmbeddings()
       );
-      console.log('Vector store loaded successfully.');
+      //   console.log('Vector store loaded successfully.');
     } else {
       throw 'Vector store does not exist. Try calling api/ingest first';
     }
@@ -67,7 +67,7 @@ export default defineEventHandler(async (event) => {
 
     const res = await chain.invoke(String(question));
 
-    console.log('Final response:', res);
+    // console.log('Final response:', res);
     return { message: res };
   } catch (error) {
     console.error('Error occurred:', error);
