@@ -1,5 +1,6 @@
 import fs from 'fs';
-import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
+import { OpenAIEmbeddings } from '@langchain/openai';
+import { ChatGroq } from '@langchain/groq';
 import { FaissStore } from '@langchain/community/vectorstores/faiss';
 import { formatDocumentsAsString } from 'langchain/util/document';
 import {
@@ -23,13 +24,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const model = new ChatOpenAI({
-      modelName: 'gpt-3.5-turbo',
+    const model = new ChatGroq({
       temperature: 0.1,
+      model: 'llama3-70b-8192',
+      apiKey: process.env.GROQ_API_KEY,
     });
 
     const { question } = await readBody<ChatRequest>(event);
-    // console.log('Received question:', question);
 
     let vectorStore;
     if (fs.existsSync(VECTOR_STORE_PATH)) {
@@ -37,7 +38,6 @@ export default defineEventHandler(async (event) => {
         VECTOR_STORE_PATH,
         new OpenAIEmbeddings()
       );
-      //   console.log('Vector store loaded successfully.');
     } else {
       throw 'Vector store does not exist. Try calling api/ingest first';
     }
@@ -67,7 +67,6 @@ export default defineEventHandler(async (event) => {
 
     const res = await chain.invoke(String(question));
 
-    // console.log('Final response:', res);
     return { message: res };
   } catch (error) {
     console.error('Error occurred:', error);
