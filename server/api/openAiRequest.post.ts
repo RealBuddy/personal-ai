@@ -1,11 +1,10 @@
 import fs from 'fs';
-import { OpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
-import { ChatOpenAI } from '@langchain/openai';
+import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
+import { FaissStore } from '@langchain/community/vectorstores/faiss';
+import { formatDocumentsAsString } from 'langchain/util/document';
 import {
-  RunnableSequence,
   RunnablePassthrough,
-  RunnableMap,
+  RunnableSequence,
 } from '@langchain/core/runnables';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import {
@@ -34,7 +33,7 @@ export default defineEventHandler(async (event) => {
 
     let vectorStore;
     if (fs.existsSync(VECTOR_STORE_PATH)) {
-      vectorStore = await HNSWLib.load(
+      vectorStore = await FaissStore.load(
         VECTOR_STORE_PATH,
         new OpenAIEmbeddings()
       );
@@ -43,42 +42,30 @@ export default defineEventHandler(async (event) => {
       throw 'Vector store does not exist. Try calling api/ingest first';
     }
 
-    const retriever = vectorStore.asRetriever();
+    const vectorStoreRetriever = vectorStore.asRetriever();
 
-    const SYSTEM_TEMPLATE = `Use the following pieces of context to answer the question at the end.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
+    const SYSTEM_TEMPLATE = `
+    Use the following pieces of context to answer the question at the end.
+    If you don't know the answer, just say that you don't know and suggest to talk to Alex, don't try to make up an answer.
     ----------------
     {context}`;
 
-    const messages = [
+    const prompt = ChatPromptTemplate.fromMessages([
       SystemMessagePromptTemplate.fromTemplate(SYSTEM_TEMPLATE),
       HumanMessagePromptTemplate.fromTemplate('{question}'),
-    ];
+    ]);
 
-    const prompt = ChatPromptTemplate.fromMessages(messages);
+    const chain = RunnableSequence.from([
+      {
+        context: vectorStoreRetriever.pipe(formatDocumentsAsString),
+        question: new RunnablePassthrough(),
+      },
+      prompt,
+      model,
+      new StringOutputParser(),
+    ]);
 
-    const sequence = new RunnableSequence({
-      first: new RunnableMap({
-        steps: {
-          context: async ({ question }) => {
-            const docs = await retriever.getRelevantDocuments(question);
-            const context = docs.map((doc) => doc.pageContent || '').join('\n');
-            console.log('Retrieved documents:', context);
-            return context;
-          },
-          question: new RunnablePassthrough(),
-        },
-      }),
-      middle: [prompt],
-      last: new RunnableSequence({
-        first: model,
-        last: new StringOutputParser(),
-      }),
-    });
-
-    const res = await sequence.invoke({
-      question: question,
-    });
+    const res = await chain.invoke(String(question));
 
     console.log('Final response:', res);
     return { message: res };
