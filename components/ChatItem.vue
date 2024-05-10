@@ -16,7 +16,7 @@
     </ClientOnly>
 
     <div
-      class="whitespace-pre-wrap self-start markdown-content"
+      class="whitespace-pre-wrap self-start"
       :class="
         chatItem.state === 'canceled'
           ? `text-red-500 before:content-['Error:_']`
@@ -25,13 +25,7 @@
     >
       <div
         v-html="chatItem.noBuild ? chatItem.text : displayText"
-        class="flex flex-col gap-1 word-break"
-        :class="
-          chatItem.state === 'typing' ||
-          (!chatItem.noBuild && mdText.trim() !== chatItem.text.trim())
-            ? `after:w-2 after:h-5 after:bg-white after:content-[''] after:flex flex after:items-end after:animate-pulse`
-            : ''
-        "
+        class="markdown-content"
       ></div>
     </div>
   </div>
@@ -67,9 +61,16 @@ watch(
       const chunks = props.chatItem.text.split(' ');
 
       for (const chunk of chunks) {
-        await sleep(100);
+        await sleep(20);
         mdText.value += `${chunk} `;
-        displayText.value = md.render(mdText.value);
+        displayText.value = md.render(
+          mdText.value +
+            (props.chatItem.state === 'typing' ||
+            (!props.chatItem.noBuild &&
+              mdText.value.trim() !== props.chatItem.text.trim())
+              ? '_'
+              : '')
+        );
       }
     } else {
       // Directly render markdown if no animation needed
@@ -91,10 +92,59 @@ onMounted(() => {
 .word-break {
   word-break: break-word;
 }
-.markdown-content {
+
+:deep(.markdown-content) {
+  white-space: normal;
+
   p {
-    margin: 0;
+    margin: 1rem;
   }
-  /* Additional styles for markdown */
+  ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+  ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+  }
+  li {
+    margin-bottom: 0.5rem;
+    color: #f8f8f2;
+  }
+  strong {
+    font-weight: bold;
+  }
+  em {
+    font-style: italic;
+  }
+  blockquote {
+    margin: 0 0 1rem;
+    padding: 0.5rem 1rem;
+    background-color: #f5f5f5;
+    border-left: 3px solid #ccc;
+  }
+  pre {
+    background-color: #333;
+    color: #f8f8f2;
+    padding: 1rem;
+    overflow: auto;
+    border-radius: 5px;
+  }
+}
+
+.cursor-effect {
+  &::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: white;
+    margin-left: 2px;
+    animation: blink 1s step-end infinite;
+  }
 }
 </style>
